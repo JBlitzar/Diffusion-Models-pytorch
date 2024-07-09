@@ -14,7 +14,7 @@ logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=log
 
 
 class Diffusion:
-    def __init__(self, noise_steps=1000, beta_start=1e-4, beta_end=0.02, img_size=256, device="cuda"):
+    def __init__(self, noise_steps=1000, beta_start=1e-4, beta_end=0.02, img_size=256, device="mps"):
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
@@ -119,14 +119,14 @@ def launch():
     args.image_size = 64
     args.num_classes = 10
     args.dataset_path = r"C:\Users\dome\datasets\cifar10\cifar10-64\train"
-    args.device = "cuda"
+    args.device = "mps"
     args.lr = 3e-4
     train(args)
 
 
 if __name__ == '__main__':
     launch()
-    # device = "cuda"
+    # device = "mps"
     # model = UNet_conditional(num_classes=10).to(device)
     # ckpt = torch.load("./models/DDPM_conditional/ckpt.pt")
     # model.load_state_dict(ckpt)

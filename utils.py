@@ -4,7 +4,11 @@ import torchvision
 from PIL import Image
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
+import glob
+from torch.utils.data import Dataset
 
+import os
+os.system(f"caffeinate -is -w {os.getpid()} &")
 
 def plot_images(images):
     plt.figure(figsize=(32, 32))
@@ -20,15 +24,28 @@ def save_images(images, path, **kwargs):
     im = Image.fromarray(ndarr)
     im.save(path)
 
+class ImageFolderDataset(Dataset):
+    def __init__(self, root_dir, transform=None, train=False):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.file_list = glob.glob(os.path.join(root_dir, '*'))
 
+    def __len__(self):
+        return len(self.file_list)
+
+    def __getitem__(self, idx):
+        img_path = self.file_list[idx]
+        image = Image.open(img_path)
+        if self.transform:
+            image = self.transform(image)
+        return image
 def get_data(args):
     transforms = torchvision.transforms.Compose([
-        torchvision.transforms.Resize(80),  # args.image_size + 1/4 *args.image_size
-        torchvision.transforms.RandomResizedCrop(args.image_size, scale=(0.8, 1.0)),
         torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        torchvision.transforms.Resize(64),
+        torchvision.transforms.CenterCrop(64)
     ])
-    dataset = torchvision.datasets.ImageFolder(args.dataset_path, transform=transforms)
+    dataset = ImageFolderDataset(root_dir=args.dataset_path, transform=transforms)#torchvision.datasets.ImageFolder(args.dataset_path, transform=transforms)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     return dataloader
 
