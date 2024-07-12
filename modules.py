@@ -253,6 +253,157 @@ class UNet_conditional(nn.Module):
         return output
 
 
+"""
+====================================================================================================================================================================================================================================================================================================================
+"""
+class ConvBlock(nn.Module):
+    def __init__(self, start, middle=None, end = None, activation=nn.ReLU, end_activation=nn.ReLU):
+        super().__init__()
+        if end == None:
+            end = start
+        if middle == None:
+            middle = end
+
+
+        if end_activation == None:
+            end_activation = activation
+        
+        self.block = nn.Sequential(
+            nn.Conv2d(start, middle, kernel_size=3, stride=1,padding=1),
+            activation(),
+            nn.Conv2d(middle, end, kernel_size=3, stride=1, padding=1),
+            end_activation()
+        )
+
+    def forward(self, x, t=None,c=None): 
+        #T and C being embedding labels for timestep + conditioning that have ALREADY been run through the nn.Embedding
+        # Skip connection concatenated beforehand
+
+
+        if t != None:
+            t = t.unsqueeze(-1).unsqueeze(-1)
+            t = t.expand(-1, -1, x.size(2), x.size(3))
+            x = torch.cat([x, t], dim=1)
+        
+        if c != None:
+            c = c.unsqueeze(-1).unsqueeze(-1)
+            c = c.expand(-1, -1, x.size(2), x.size(3))
+            x = torch.cat([x, c], dim=1)
+
+        x = self.block(x)
+
+        return x
+
+
+class ConvDownBlock(ConvBlock):
+    def __init__(self, start, end=None, middle=None,  activation=nn.ReLU, end_activation=nn.ReLU):
+        if end == None:
+            end = start * 2
+        if middle == None:
+            middle = end
+        super().__init__(start, middle, end, activation, end_activation)
+
+        
+
+        self.block = nn.Sequential(
+            nn.MaxPool2d(2),
+            nn.Conv2d(start, middle, kernel_size=3, stride=1,padding=1),
+            activation(),
+            nn.Conv2d(middle, end, kernel_size=3, stride=1, padding=1),
+            end_activation()
+        )
+
+class ConvUpBlock(ConvBlock):
+    def __init__(self, start,end=None, middle=None,  activation=nn.ReLU, end_activation=nn.ReLU):
+        super().__init__(start, middle, end, activation, end_activation)
+
+        if end == None:
+            end = start // 2
+        if middle == None:
+            middle = end
+
+
+        self.block = nn.Sequential(
+            nn.ConvTranspose2d(start, middle, kernel_size=4, stride=2,padding=1),
+            activation(),
+            nn.ConvTranspose2d(middle, end, kernel_size=3, stride=1, padding=1),
+            end_activation()
+        )
+class SimpleUNet(nn.Module):
+    def __init__(
+            self, 
+            pos_channels: int = 16,
+            prefix: nn.Sequential = nn.Sequential(), 
+            down: nn.ModuleList = nn.ModuleList(), 
+            bottleneck: nn.Sequential = nn.Sequential(), 
+            up: nn.ModuleList = nn.ModuleList(), 
+            postfix: nn.Sequential = nn.Sequential()
+        ):
+        super().__init__()
+
+        self.prefix = prefix
+        start_depth = 8
+        self.down = nn.ModuleList([
+            ConvDownBlock(3+pos_channels, start_depth), # ends 8*32*32
+            ConvDownBlock(start_depth+pos_channels, start_depth*2), # ends 16*16*16
+            ConvDownBlock(start_depth*2+pos_channels, start_depth*4), # ends 32*8*8
+        ])
+        self.bottleneck = ConvBlock(start_depth*4, start_depth*8, start_depth*4)
+        self.up = nn.ModuleList([
+            ConvUpBlock(2*start_depth*4+pos_channels, start_depth*2),
+            ConvUpBlock(2*start_depth*2+pos_channels, start_depth),
+            ConvUpBlock(2*start_depth+pos_channels, 3, end_activation=nn.Sigmoid)
+
+        ])
+        self.postix = postfix
+        self.channels = 16
+    @staticmethod
+    def positional_encode(t, channels):
+
+        t = t.unsqueeze(-1).squeeze(0)
+
+        inv_freq = 1.0 / (
+        10000 ** (torch.arange(0, channels, 2).float() / channels)
+        )
+
+        inv_freq = inv_freq.to(t.device)
+        # print(t.size())
+        # print(inv_freq.size())
+
+        # print(t.repeat(1, channels // 2).size())
+        
+        pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq)
+        pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq)
+        pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
+        return pos_enc
+
+
+
+
+    def forward(self, x, t):
+
+        t = self.positional_encode(t, self.channels)
+
+
+
+        x = self.prefix(x)
+
+        skips = []
+        for layer in self.down:
+            x = layer(x, t)
+            skips.append(torch.clone(x))
+        
+        x = self.bottleneck(x)
+
+        for i, layer in enumerate(self.up):
+
+            x = torch.cat((x, skips[-(i+1)]), dim=1)
+
+            x = layer(x, t)
+
+        x = self.postix(x)
+
+        return x  
 if __name__ == '__main__':
     net = UNet(device="cpu")
     #net = UNet_conditional(num_classes=10, device="cpu")

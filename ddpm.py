@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 from torch import optim
 from utils import *
-from modules import UNet
+from modules import UNet, SimpleUNet
 import logging
 from torch.utils.tensorboard import SummaryWriter
 
@@ -62,7 +62,7 @@ def train(args):
     setup_logging(args.run_name)
     device = args.device
     dataloader = get_data(args)
-    model = UNet().to(device)
+    model = SimpleUNet().to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     mse = nn.MSELoss()
     diffusion = Diffusion(img_size=args.image_size, device=device)
@@ -100,7 +100,7 @@ def launch():
     import argparse
     parser = argparse.ArgumentParser()
     args = parser.parse_args()
-    args.run_name = "flowers_DDPM_Uncondtional_run2"
+    args.run_name = "flowers_simple_DDPM_Uncondtional_run1"
     args.epochs = 500
     args.batch_size = 12
     args.image_size = 64
