@@ -257,7 +257,7 @@ class UNet_conditional(nn.Module):
 ====================================================================================================================================================================================================================================================================================================================
 """
 class ConvBlock(nn.Module):
-    def __init__(self, start, middle=None, end = None, activation=nn.ReLU, end_activation=nn.ReLU):
+    def __init__(self, start, middle=None, end = None, activation=nn.ReLU, end_activation=nn.ReLU, emb_channels=16, cond_embed_channels=16):
         super().__init__()
         if end == None:
             end = start
@@ -275,17 +275,27 @@ class ConvBlock(nn.Module):
             end_activation()
         )
 
+        self.emb = nn.Linear(emb_channels, emb_channels)
+
+        self.emb_cond = nn.Linear(cond_embed_channels, emb_channels)
+
     def forward(self, x, t=None,c=None): 
-        #T and C being embedding labels for timestep + conditioning that have ALREADY been run through the nn.Embedding
+        #T and C being embedding labels for timestep + conditioning before embedding
         # Skip connection concatenated beforehand
 
 
         if t != None:
+            t = self.emb(t)
+
             t = t.unsqueeze(-1).unsqueeze(-1)
             t = t.expand(-1, -1, x.size(2), x.size(3))
             x = torch.cat([x, t], dim=1)
         
         if c != None:
+
+            c = self.emb_cond(c)
+
+
             c = c.unsqueeze(-1).unsqueeze(-1)
             c = c.expand(-1, -1, x.size(2), x.size(3))
             x = torch.cat([x, c], dim=1)
@@ -296,12 +306,12 @@ class ConvBlock(nn.Module):
 
 
 class ConvDownBlock(ConvBlock):
-    def __init__(self, start, end=None, middle=None,  activation=nn.ReLU, end_activation=nn.ReLU):
+    def __init__(self, start, end=None, middle=None,  activation=nn.ReLU, end_activation=nn.ReLU, emb_channels=16, cond_embed_channels=16):
         if end == None:
             end = start * 2
         if middle == None:
             middle = end
-        super().__init__(start, middle, end, activation, end_activation)
+        super().__init__(start, middle, end, activation, end_activation, emb_channels, cond_embed_channels)
 
         
 
@@ -314,8 +324,8 @@ class ConvDownBlock(ConvBlock):
         )
 
 class ConvUpBlock(ConvBlock):
-    def __init__(self, start,end=None, middle=None,  activation=nn.ReLU, end_activation=nn.ReLU):
-        super().__init__(start, middle, end, activation, end_activation)
+    def __init__(self, start,end=None, middle=None,  activation=nn.ReLU, end_activation=nn.ReLU,  emb_channels=16, cond_embed_channels=16):
+        super().__init__(start, middle, end, activation, end_activation, emb_channels, cond_embed_channels)
 
         if end == None:
             end = start // 2
@@ -329,6 +339,10 @@ class ConvUpBlock(ConvBlock):
             nn.ConvTranspose2d(middle, end, kernel_size=3, stride=1, padding=1),
             end_activation()
         )
+
+
+
+
 class SimpleUNet(nn.Module):
     def __init__(
             self, 

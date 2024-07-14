@@ -100,7 +100,7 @@ def launch():
     import argparse
     parser = argparse.ArgumentParser()
     args = parser.parse_args()
-    args.run_name = "flowers_simple_DDPM_Uncondtional_run1"
+    args.run_name = "flowers_simple_DDPM_Uncondtional_run2"
     args.epochs = 500
     args.batch_size = 12
     args.image_size = 64
