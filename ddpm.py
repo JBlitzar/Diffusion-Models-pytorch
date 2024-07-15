@@ -62,7 +62,7 @@ def train(args):
     setup_logging(args.run_name)
     device = args.device
     dataloader = get_data(args)
-    model = SimpleUNet().to(device)
+    model = UNet().to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     mse = nn.MSELoss()
     diffusion = Diffusion(img_size=args.image_size, device=device)
@@ -100,7 +100,7 @@ def launch():
     import argparse
     parser = argparse.ArgumentParser()
     args = parser.parse_args()
-    args.run_name = "flowers_simple_DDPM_Uncondtional_run2"
+    args.run_name = "flowers_simple_DDPM_Unconditional_run3_long"
     args.epochs = 500
     args.batch_size = 12
     args.image_size = 64
