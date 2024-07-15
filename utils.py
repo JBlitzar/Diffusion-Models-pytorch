@@ -42,8 +42,8 @@ class ImageFolderDataset(Dataset):
 def get_data(args):
     transforms = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
-        torchvision.transforms.Resize(32),
-        torchvision.transforms.CenterCrop(32)
+        torchvision.transforms.Resize(64),
+        torchvision.transforms.CenterCrop(64)
     ])
     dataset = ImageFolderDataset(root_dir=args.dataset_path, transform=transforms)#torchvision.datasets.ImageFolder(args.dataset_path, transform=transforms)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
